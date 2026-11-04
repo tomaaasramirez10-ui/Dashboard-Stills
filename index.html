@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Stills Octubre</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f5f9;--card:#fff;--ink:#1c1f2b;--mut:#6b7280;--red:#e41e2b;--line:#e5e7eb}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:linear-gradient(120deg,#b3121d,#e41e2b 60%,#ff5a4d);color:#fff;padding:22px 32px}
+header h1{margin:0;font-size:26px;letter-spacing:.3px}
+header p{margin:4px 0 0;opacity:.9;font-size:13px}
+nav{display:flex;gap:6px;padding:14px 32px 0;flex-wrap:wrap}
+nav button{border:0;background:#e9eaf0;padding:10px 20px;border-radius:10px 10px 0 0;font-size:14px;font-weight:600;color:var(--mut);cursor:pointer}
+nav button.on{background:var(--card);color:var(--red);box-shadow:0 -2px 0 var(--red) inset}
+main{background:var(--card);margin:0 32px 32px;border-radius:0 12px 12px 12px;padding:22px;box-shadow:0 4px 18px rgba(0,0,0,.06)}
+.pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:15px;border-bottom:1px solid var(--line)}
+.pills button{border:1px solid var(--line);background:#fff;padding:8px 18px;border-radius:20px;font-size:14px;font-weight:600;color:var(--mut);cursor:pointer;transition:0.2s}
+.pills button.on{background:var(--red);border-color:var(--red);color:#fff}
+.pills button:hover:not(.on){border-color:var(--mut)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px}
+.kpi{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,0.02)}
+.kpi small{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:0.5px}
+.kpi b{display:block;font-size:26px;margin-top:4px;font-weight:800}
+.kpi span{font-size:12px;font-weight:600}
+.up{color:#0f9d58}.dn{color:#d93025}
+.chartbox{border:1px solid var(--line);border-radius:12px;padding:14px;height:320px;margin-bottom:25px;box-shadow:0 2px 5px rgba(0,0,0,0.02)}
+h3{margin:0 0 6px;font-size:16px;font-weight:700}
+.hint{color:var(--mut);font-size:13px;margin-bottom:12px}
+.wrap{overflow:auto;max-height:560px;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th{position:sticky;top:0;background:#1c1f2b;color:#fff;z-index:2;font-weight:600}
+.s1,.s2{position:sticky;background:#fff;text-align:left;z-index:1}
+.s1{left:0;min-width:120px;font-weight:700;color:var(--ink)}
+.s2{left:120px;min-width:70px;border-right:2px solid var(--line)}
+thead .s1,thead .s2{background:#1c1f2b;z-index:3;color:#fff}
+tr.fmt{cursor:pointer;transition:0.1s}
+tr.fmt:hover td,tr.fmt:hover .s2{background-color:#f9fafb}
+tr.sel .s2{color:var(--red);font-weight:800}
+tr.tot td, tr.tot .s1, tr.tot .s2 {background:#fde8ea;font-weight:700;color:var(--red)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Dashboard Stills</h1>
+  <p id="subDesc">¡Hola Equipo! Seleccionen una pestaña para revisar Coberturas NARTD, Distribución Numérica (DN) o Distribución Ponderada (DP).</p>
+</header>
+
+<nav id="mainTabs">
+  <button class="on" onclick="setMode('COB')">Coberturas NARTD</button>
+  <button onclick="setMode('DN')">Distribución Numérica (DN)</button>
+  <button onclick="setMode('DP')">Distribución Ponderada (DP)</button>
+</nav>
+
+<main>
+  <div class="pills" id="zonePills"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="chartbox"><canvas id="chart"></canvas></div>
+  <h3 id="tableTitle">Tabla de Datos</h3>
+  <div class="hint" id="tableHint">Hagan clic en una fila para graficarla. Los colores más intensos indican mayor porcentaje.</div>
+  <div class="wrap"><table id="tbl"></table></div>
+</main>
+<script>
+// --- DATA DEFINITION ---
+const M25=[...Array(12)].map((_,i)=>'2025-'+String(i+1).padStart(2,'0'));
+const M26=[...Array(10)].map((_,i)=>'2026-'+String(i+1).padStart(2,'0'));
+const MESES_COB=[...M25,...M26];
+const MESES_DN_DP=[...M25,...M26.slice(0,9)]; 
+
+const D={
+Antofagasta:{m:MESES_COB,tot:[4038,3949,4089,4105,4115,4065,4079,4126,4149,4281,4285,4315,4178,4147,4290,4294,4245,4208,4300,4292,4361,4411],
+rows:["Aquarius|3 LTR|15|25 31 29 38 29 24 58","Benedictino|1.5 LTR|0|2667 2638 2662 2631 2563 2461 2475 2585 2676 2771 2863 2877 2777 2784 2819 2804 2619 2638 2718 2742 2930 3066","Benedictino|3 LTR|0|2210 2156 2148 2126 2065 1930 2026 2051 2127 2219 2219 2360 2348 2266 2289 2256 2118 2075 2121 2126 2218 2275","Benedictino|500 ML|0|2588 2554 2692 2662 2662 2514 2526 2566 2660 2846 2807 2905 2753 2720 2878 2866 2646 2681 2734 2850 2959 3141","Del Valle-KO|1.5 LTR|0|817 797 815 865 923 868 855 917 550 766 816 1051 795 824 996 656 449 141","Del Valle-KO|1.75 LTR |15|15 423 584 776 780 824 879","Del Valle-KO|340 ML|0|644 517 731 436 501 502 541 493 583 1118 667 628 528 512 574 524 513 484 872 755 677 679","Fastlyte-KO|625 ML|0|148 139 142 143 144 173 161 154 134 155 422 304 215 304 183 299 239 371 294 254 351 278","Guallarauco-KO|1 LTR|0|773 728 722 832 766 759 781 747 774 861 765 816 754 778 724 697 707 669 702 678 741 809","Kapo|252 ML|0|2252 2205 2549 2465 2414 2306 2236 2400 2360 2591 2464 2412 2228 2340 2418 2494 2528 2340 2311 2337 2373 2547","Monster-KO|473 ML|0|3061 2994 3138 3158 3167 2947 3145 3172 3056 3326 3296 3399 3171 3088 3271 3248 3201 3174 3281 3276 3455 3402","Powerade|1.1 LTR|0|2351 2262 2363 2344 2338 2179 2182 2159 2310 2401 2400 2505 2338 2273 2396 2289 2242 2202 2255 2170 2357 2470","Powerade|850 ML|0|238 216 234 273 258 707 516 673 593 452 568 441 353 327 448 400 317 342 332 352 389 462","Powerade Light|1.1 LTR|0|654 620 654 644 633 511 653 725 679 735 740 839 832 830 865 765 685 610 691 696 797 841","Vital|1.6 LTR|0|1658 1618 1608 1561 1599 1419 1463 1499 1506 1615 1672 1617 1632 1506 1624 1456 1349 1292 1337 1332 1456 1464","Vital|600 ML|0|1339 1276 1353 1296 1271 1145 1185 1341 1270 1356 1497 1406 1307 1232 1331 1242 1073 1025 1047 1055 1138 1222"]},
+Coquimbo:{m:MESES_COB,tot:[6433,6383,6465,6435,6406,6242,6403,6461,6548,6681,6707,6859,6769,6787,6847,6766,6651,6652,6613,6743,6925,6949],
+rows:["Aquarius|3 LTR|7|2 120 673 416 699 540 493 412 394 384 380 442 508 418 447","Benedictino|1.5 LTR|0|427 471 454 330 353 270 296 478 730 790 878 865 1191 1339 1191 879 837 863 793 1483 1439 1624","Benedictino|3 LTR|0|886 811 779 710 667 575 656 623 662 721 703 778 942 991 896 725 669 640 864 734 723 801","Benedictino|500 ML|0|1306 1569 939 853 822 710 777 771 1118 1131 1271 1322 2326 1746 1779 1303 1165 1319 1152 1660 1769 1745","Del Valle|1.5 LTR |0|1229 1210 1114 1163 1194 1142 1169 1144 869 1053 1019 1406 1187 940 1326 1181 717 406","Del Valle|1.75 LTR |15|29 396 601 902 968 1045 1069","Del Valle|340 ML|0|876 800 851 605 572 617 599 630 619 1666 813 801 767 674 730 637 729 603 806 1310 961 855","Fastlyte-KO|625 ML|0|306 311 310 287 262 230 258 870 810 551 428 930 880 541 449 381 362 419 312 562 957 524","Guallarauco-KO|1 LTR|0|579 523 563 513 596 749 709 693 793 703 663 637 600 604 574 572 534 718 758 781 904 986","Kapo|252 ML|0|3251 3135 3524 3424 3321 2936 3178 3138 3243 3483 3424 3362 3293 3344 3439 3487 3332 3173 2970 3229 3372 3432","Monster-KO|473 ML|0|5039 4983 5008 4995 4902 4672 4940 5087 5224 5135 5234 5613 5283 5253 5346 5225 5059 5126 4958 5339 5415 5366","Powerade|1.1 LTR|0|3821 3713 3846 3758 3668 3349 3546 3503 3856 3830 3817 4110 3863 3868 3968 3928 3554 3567 3409 3508 3909 3831","Powerade|850 ML|0|1054 988 874 891 852 1207 1198 1397 1852 1222 1315 1203 1103 965 1453 1413 911 940 968 1037 1073 1034","Powerade Light|1.1 LTR|0|500 461 482 431 441 385 433 475 481 521 559 613 659 651 660 610 482 451 441 495 649 656","Vital|1.6 LTR|0|4560 4569 4523 4336 4208 3947 4174 4167 4415 4511 4565 4823 4728 4880 4770 4468 4197 4203 4466 4269 4651 4667","Vital|600 ML|0|4305 4186 4365 4251 4169 3775 3965 4126 4342 4589 4659 4977 4754 4857 4772 4483 4110 4088 4148 4279 4763 4803"]},
+"Zona Centro":{m:M26,tot:[26249,25385,26744,26589,25743,25682,24832,25706,26416,26740],
+rows:["Aquarius|3 LTR|0|4036 3582 4520 4258 3597 3374 2891 2752 3006 3396","Benedictino|1.5 LTR|0|4618 4532 5857 5416 4398 4134 3816 7971 6221 6564","Benedictino|3 LTR|0|10218 10090 11869 10042 8442 8023 8521 8940 8802 9345","Benedictino|500 ML|0|7305 6297 6873 5538 4877 4609 4200 9515 8502 8346","Del Valle-KO|1.5 LTR|0|5228 4826 5299 4804 2726 1814 1500 510 25 29","Del Valle-KO|1.75 LTR|3|326 2543 2904 3092 3569 4307 4327","Del Valle-KO|340 ML|0|3298 2877 4039 6928 3239 2951 5576 5639 4358 4354","Fastlyte-KO|625 ML|0|3981 2669 3009 2966 2545 2298 1546 2678 2797 2705","Guallarauco-KO|1 LTR|0|5081 4483 6099 5357 5367 5107 4706 5405 5218 5371","Kapo|252 ML|0|12201 12162 12756 13233 12090 10893 9905 10760 11869 12693","Monster-KO|473 ML|0|19052 18107 19614 19226 18813 18518 17962 18353 19969 19946","Powerade|1.1 LTR|0|13459 13289 14853 14384 12872 12172 10819 12127 13445 13786","Powerade|850 ML|0|4413 3891 4551 4075 3743 3835 3229 5372 5581 5801","Powerade Light|1.1 LTR|0|2416 2513 2759 2304 1914 1785 1621 1758 2138 2165","Vital|1.6 LTR|0|15168 15090 14910 13915 12806 12589 11824 12461 15578 15051","Vital|600 ML|0|14113 13168 14107 12393 10551 10192 9846 10742 12231 12315"]},
+"Multicategoría":{m:MESES_COB,tot:[3831,3684,3877,3759,3736,3638,3760,3766,3839,3941,3892,4009,3866,3731,3876,3881,3796,3717,3583,3698,3798,3832],
+rows:["Aquarius|3 LTR|7|64 220 290 296 351 329 261 280 395 355 301 236 216 241 254","Benedictino|1.5 LTR|0|248 259 249 199 191 177 190 400 617 797 661 742 809 740 768 789 608 602 504 1137 1120 1069","Benedictino|3 LTR|0|2054 1936 1996 1714 1643 1471 1579 1647 1723 1948 1959 2162 2182 2056 2373 1941 1732 1546 1627 1711 1763 1768","Benedictino|500 ML|0|862 903 872 771 722 597 652 765 890 1042 997 1060 1164 1035 1045 863 728 672 581 1359 1116 1190","Del Valle-KO|1.5 LTR|0|478 476 526 428 448 419 496 418 350 444 410 585 494 436 486 411 211 155 134 52 3 6","Del Valle-KO|1.75 LTR|15|60 264 259 242 273 391 379","Del Valle-KO|340 ML|0|1148 840 576 419 416 503 578 409 475 1102 526 565 461 468 512 760 451 477 625 831 671 532","Fastlyte-KO|625 ML|0|626 677 659 360 415 323 313 314 510 443 414 480 513 402 523 401 321 411 178 212 341 299","Guallarauco-KO|1 LTR|0|948 912 965 919 1052 939 1101 1046 1041 1094 997 1099 1005 975 1083 1102 1060 1220 838 828 968 934","Kapo|252 ML|0|1100 1031 1352 1162 1015 843 956 964 1006 1208 1101 1086 1096 1124 1111 1171 1049 857 816 829 983 1021","Monster-KO|473 ML|0|3098 2874 3187 3058 2936 2751 3081 3048 3212 3269 3357 3478 3202 2999 3177 3100 3034 2954 2872 2942 3047 3151","Powerade|1.1 LTR|0|2513 2363 2605 2400 2257 1868 2205 2243 2389 2529 2567 2788 2465 2361 2642 2338 2113 1951 1718 1861 2278 2215","Powerade|850 ML|0|537 474 529 449 409 1094 652 941 1141 601 556 605 564 429 497 665 617 403 293 327 666 519","Powerade Light|1.1 LTR|0|330 308 354 293 282 207 276 334 338 425 430 496 465 473 519 406 365 302 277 284 370 368","Vital|1.6 LTR|0|2664 2538 2643 2298 2241 1933 2242 2202 2281 2522 2499 2648 2616 2506 2457 2280 2022 2042 1821 1990 2474 2386","Vital|600 ML|0|1832 1717 1845 1645 1617 1297 1631 1576 1738 1971 1979 2081 1940 1811 1892 1594 1358 1348 1162 1288 1589 1500"]},
+"Punta Arenas":{m:MESES_COB,tot:[1463,1408,1497,1472,1443,1377,1388,1424,1473,1517,1557,1546,1534,1479,1510,1447,1411,1391,1354,1394,1451,1496],
+rows:["Aquarius|1.6 LTR|0|616 573 636 621 591 572 545 601 619 616 602 626 609 582 567 537 547 535 508 492 490 548","Benedictino|1.5 LTR|0|673 605 615 588 607 540 545 557 586 660 662 672 729 691 666 649 603 578 574 623 735 726","Benedictino|3 LTR|0|58 69 56 43 47 47 58 29 45 52 53 59 82 55 65 43 39 43 76 43 53 61","Benedictino|500 ML|0|652 605 651 640 564 507 510 568 647 753 790 774 776 732 717 637 578 529 529 597 841 835","Del Valle-KO|1.5 LTR|0|460 420 434 426 447 410 289 319 408 366 448 416 480 375 421 425 420 108 129 27","Del Valle-KO|1.75 LTR|16|2 212 251 387 352 344","Del Valle-KO|340 ML|0|259 285 201 195 161 152 138 116 192 291 204 189 204 157 168 111 81 163 147 245 128 176","Fastlyte-KO|625 ML|0|47 31 43 51 46 24 35 30 46 53 96 86 65 46 76 88 70 64 45 64 79 109","Guallarauco-KO|1 LTR|0|296 278 319 307 312 291 298 333 323 356 347 364 358 327 347 308 323 315 305 313 293 344","Kapo|252 ML|0|373 354 388 443 406 321 374 398 400 442 428 400 401 420 446 413 371 374 323 369 365 447","Monster-KO|473 ML|0|1089 1053 1111 1115 1085 1001 1049 1060 1133 1091 1173 1168 1094 1079 1080 1062 1032 1017 987 1017 1075 1137","Powerade|1.1 LTR|0|519 461 475 477 466 421 409 463 483 520 563 572 493 467 503 504 430 398 401 418 443 480","Powerade|850 ML|0|145 150 183 183 203 256 273 333 350 297 233 267 257 195 197 187 199 219 162 159 160 159","Powerade Light|1.1 LTR|0|124 107 119 102 115 90 117 111 154 164 125 152 153 148 135 132 117 103 94 100 117 144","Vital|1.6 LTR|0|515 508 498 478 461 419 443 457 496 493 509 534 555 503 487 456 427 448 438 436 431 506","Vital|600 ML|0|513 448 486 447 429 383 397 419 450 498 537 532 582 508 477 443 403 375 370 372 412 535"]}
+};
+
+const K={
+"Antofagasta":{"DN":[["Benedictino 500 ML",[84,80,80,78,81,81,83,86,89,89,89,89,91,91,91,89,86,90,90,90,90]],["Vital 600 ML",[58,55,55,49,51,57,54,52,54,50,57,61,56,59,56,53,50,54,52,51,52]],["Kapo 252 ML",[90,87,85,86,85,84,84,85,84,83,84,87,88,88,90,90,89,86,89,88,92]],["Guallarauco 1 LTR",[23,25,22,25,22,23,23,27,29,28,27,23,28,31,26,32,29,31,36,32,32]],["Del Valle 340 ML",[15,22,28,25,25,22,25,33,34,28,30,31,28,23,29,26,27,26,27,21,22]],["Monster 473 ML",[90,90,91,92,91,85,88,88,93,93,94,97,96,93,92,95,90,94,92,92,97]],["Fastlyte 625 ML",[8,10,10,10,7,9,8,15,11,13,11,11,12,13,14,16,16,15,19,22,18]],["Powerade 1.1 LTR",[73,73,75,77,73,71,72,75,74,76,72,72,74,68,65,63,67,63,63,67,71]]],"DP":[["Benedictino 500 ML",[96,95,96,93,94,84,96,97,97,96,98,96,97,97,97,96,94,97,97,97,97]],["Vital 600 ML",[80,80,79,70,67,72,73,69,69,65,78,79,69,74,71,69,68,69,68,69,72]],["Kapo 252 ML",[97,96,93,92,91,91,92,94,93,92,94,95,93,92,93,93,93,87,90,91,95]],["Guallarauco 1 LTR",[50,60,53,55,52,54,50,53,55,49,52,48,55,53,48,51,47,54,59,57,58]],["Del Valle 340 ML",[30,49,52,48,46,40,38,56,52,43,46,49,41,39,46,44,45,41,45,44,45]],["Monster 473 ML",[97,98,98,98,98,97,98,97,99,100,99,100,99,98,98,99,96,99,99,99,99]],["Fastlyte 625 ML",[26,30,30,30,23,35,31,42,31,31,31,31,30,30,32,30,36,31,37,41,40]],["Powerade 1.1 LTR",[92,94,96,95,94,94,90,95,94,95,89,89,90,87,87,84,89,88,86,90,92]]]},
+"Coquimbo":{"DN":[["Powerade 1.1 LTR",[67,67,62,64,63,62,62,70,69,68,56,52,52,52,50,55,56,57,52,51,54]],["Fastlyte 625 ML",[4,2,4,1,1,4,4,6,10,11,12,12,15,21,18,15,12,10,12,14,15]],["Monster 473 ML",[85,82,82,81,81,79,81,78,79,83,80,83,82,84,83,84,83,79,79,77,82]],["Del Valle 340 ML",[7,15,16,16,16,16,20,16,17,17,22,20,18,14,14,15,11,16,13,17,19]],["Guallarauco 1 LTR",[4,3,4,7,7,7,7,8,10,10,9,10,8,8,9,7,10,11,11,12,10]],["Kapo 252 ML",[70,68,68,71,70,69,69,68,68,72,75,77,78,75,72,72,70,66,69,69,71]],["Vital 600 ML",[83,82,82,84,80,83,84,85,81,86,87,89,89,86,84,81,83,84,86,86,84]],["Benedictino 500 ML",[10,17,19,16,12,11,12,11,9,12,9,10,11,17,21,22,17,14,16,17,17]]],"DP":[["Powerade 1.1 LTR",[88,82,80,83,87,83,86,90,90,81,70,66,69,72,66,69,70,74,70,69,70]],["Fastlyte 625 ML",[8,4,5,4,3,11,10,17,22,21,19,26,31,40,34,29,21,18,18,26,29]],["Monster 473 ML",[97,97,97,95,96,92,96,94,93,96,94,97,97,98,97,98,97,96,96,96,96]],["Del Valle 340 ML",[9,24,32,26,23,35,37,30,31,31,36,37,31,27,25,25,20,26,23,33,33]],["Guallarauco 1 LTR",[16,13,13,18,18,22,23,19,23,22,20,25,22,21,27,22,25,29,26,28,29]],["Kapo 252 ML",[79,79,79,82,83,82,82,81,82,87,88,87,89,87,84,81,82,78,83,80,86]],["Vital 600 ML",[93,92,92,94,91,94,97,97,93,97,95,97,95,92,92,90,91,90,93,93,93]],["Benedictino 500 ML",[18,27,32,25,16,16,18,16,16,18,16,17,19,30,37,35,30,27,31,32,33]]]},
+"Zona Centro":{"DN":[["Benedictino 500 ML",[32,34,33,30,28,27,26,31,32,32,35,35,38,42,42,40,39,36,31,30,30]],["Vital 600 ML",[62,63,59,59,59,60,59,57,61,61,65,65,63,60,59,56,57,56,53,54,55]],["Kapo 252 ML",[58,55,57,58,60,58,55,57,58,60,61,60,55,54,57,57,56,59,56,58,55]],["Guallarauco 1 LTR",[26,26,27,27,27,25,27,28,31,30,32,27,30,28,29,28,27,28,31,28,29]],["Del Valle 340 ML",[18,26,27,19,19,22,23,21,23,26,27,29,27,22,22,30,33,30,32,34,32]],["Monster 473 ML",[74,72,70,69,71,72,68,70,73,73,75,76,73,70,68,74,72,71,71,73,74]],["Fastlyte 625 ML",[14,18,16,16,15,13,13,14,14,14,14,13,17,19,21,21,17,23,24,21,23]],["Powerade 1.1 LTR",[54,52,51,48,50,53,50,52,50,48,53,56,55,54,56,57,57,61,58,57,61]]],"DP":[["Benedictino 500 ML",[43,47,46,44,40,39,37,43,46,44,48,48,50,53,55,50,51,47,45,46,44]],["Vital 600 ML",[69,71,68,70,70,70,69,68,70,70,74,74,72,71,68,66,67,66,65,69,69]],["Kapo 252 ML",[64,64,64,69,70,67,62,65,66,66,70,69,65,63,65,67,64,64,62,65,64]],["Guallarauco 1 LTR",[46,46,48,49,49,49,48,48,49,46,51,45,44,44,46,45,45,45,48,45,46]],["Del Valle 340 ML",[26,34,40,31,32,32,33,31,33,38,42,40,36,31,34,48,52,49,48,52,51]],["Monster 473 ML",[89,89,87,88,88,90,87,87,89,88,90,91,91,88,89,90,89,89,90,91,91]],["Fastlyte 625 ML",[23,27,23,25,25,23,20,24,22,22,25,21,28,33,32,36,30,37,36,33,33]],["Powerade 1.1 LTR",[71,69,66,67,69,69,66,66,66,64,69,71,72,73,75,75,78,79,77,77,80]]]},
+"Multicategoría":{"DN":[["Powerade 1.1 LTR",[65,62,62,62,67,66,66,63,63,70,68,71,70,73,72,70,69,69,69,66,67]],["Fastlyte 625 ML",[13,18,19,16,18,16,16,15,15,12,14,16,11,14,14,17,12,13,16,14,12]],["Monster 473 ML",[85,82,78,80,83,86,83,84,86,83,87,84,84,87,84,87,86,80,80,80,82]],["Del Valle 340 ML",[11,19,19,27,25,26,26,27,25,29,31,26,21,20,19,27,27,29,26,32,29]],["Guallarauco 1 LTR",[30,30,34,34,33,32,32,31,31,31,32,32,31,30,25,26,23,23,25,26,25]],["Kapo 252 ML",[27,28,32,33,38,36,35,33,33,35,35,35,36,36,37,34,29,29,31,31,32]],["Vital 600 ML",[66,67,64,62,58,56,54,61,57,62,58,60,64,63,66,61,57,56,54,56,56]],["Benedictino 500 ML",[33,30,33,31,30,31,30,34,36,37,37,44,44,42,38,37,35,31,30,26,36]]],"DP":[["Powerade 1.1 LTR",[72,73,77,78,79,78,77,73,76,78,77,79,78,81,83,81,81,82,82,82,79]],["Fastlyte 625 ML",[13,21,23,19,26,23,23,15,15,14,18,22,18,19,18,21,18,19,23,22,18]],["Monster 473 ML",[93,91,90,91,92,93,91,89,92,90,94,94,95,96,95,94,93,91,90,91,91]],["Del Valle 340 ML",[14,30,40,32,31,33,35,38,30,34,37,33,22,26,23,30,33,34,35,37,37]],["Guallarauco 1 LTR",[46,48,53,51,50,50,49,48,45,44,48,47,47,46,42,41,39,37,40,37,39]],["Kapo 252 ML",[34,33,40,42,47,43,35,34,34,37,39,40,42,41,40,39,32,36,37,36,34]],["Vital 600 ML",[69,72,73,71,66,63,63,70,62,68,67,70,73,71,71,69,67,69,65,65,66]],["Benedictino 500 ML",[44,45,46,44,44,43,41,39,44,46,47,53,55,50,46,44,47,43,39,37,47]]]}};
+
+const ZONAS=Object.keys(D);
+const PAL=['#e41e2b','#2563eb','#0f9d58','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#64748b'];
+
+let mode = 'COB'; 
+let curZone = ZONAS[0];
+let sel = new Set();
+let chart = null;
+
+const fmtVal = (v, m) => v==null ? '–' : (m==='COB' ? (v*100).toFixed(1)+'%' : v+'%');
+const heatVal = (v, max, m) => {
+    if(v==null) return '';
+    let pct = m==='COB' ? (v/max)*0.6 : (v/100)*0.6; 
+    return `background:rgba(228,30,43,${pct.toFixed(2)})`;
+};
+const del = (a, b) => {
+    if(a==null||b==null) return '<td style="color:var(--mut)">-</td>';
+    const diff = (a - b).toFixed(1);
+    return `<td style="color:${diff>0?'#0f9d58':diff<0?'#d93025':'#6b7280'};font-weight:700">${diff>0?'+':''}${diff} pp</td>`;
+};
+
+const navBtns = document.querySelectorAll('#mainTabs button');
+const pillsDiv = document.getElementById('zonePills');
+const kpisDiv = document.getElementById('kpis');
+const tbl = document.getElementById('tbl');
+const title = document.getElementById('tableTitle');
+const hint = document.getElementById('tableHint');
+const subDesc = document.getElementById('subDesc');
+
+function init() {
+    pillsDiv.innerHTML = ZONAS.map(z => `<button class="${z===curZone?'on':''}" onclick="setZone('${z}')">${z}</button>`).join('');
+    render();
+}
+
+function setMode(m) {
+    mode = m;
+    navBtns.forEach(b => b.classList.remove('on'));
+    event.target.classList.add('on');
+    sel = new Set();
+    
+    if(m==='COB') subDesc.textContent = "¡Hola Equipo! Seleccionen una pestaña para revisar Coberturas NARTD, Distribución Numérica (DN) o Distribución Ponderada (DP).";
+    else subDesc.textContent = `Visualizando: ${m==='DN'?'Distribución Numérica':'Distribución Ponderada'} (Valores en %). Datos hasta 2026-09. Punta Arenas S/D.`;
+    
+    render()
+}
+
+function setZone(z) {
+    curZone = z;
+    Array.from(pillsDiv.children).forEach(b => b.classList.toggle('on', b.textContent === z));
+    sel = new Set();
+    render();
+}
+
+function parseCob() {
+    const d = D[curZone];
+    if(!d) return [];
+    return d.rows.map(s => {
+        const [b, f, st, v] = s.split('|');
+        const a = Array(d.m.length).fill(null);
+        v.split(' ').forEach((x, i) => { const k = +st + i; if (k < d.m.length) a[k] = +x; });
+        return { b, f, raw: a, val: a.map((x, i) => x == null ? null : x / d.tot[i]) };
+    });
+}
+
+function parseKpi() {
+    const kData = K[curZone];
+    if(!kData || !kData[mode]) return [];
+    return kData[mode].map(item => {
+        const parts = item[0].split(' ');
+        const f = parts.slice(-2).join(' ');
+        const b = parts.slice(0, -2).join(' ');
+        return { b, f, val: item[1] };
+    });
+}
+
+function render() {
+    if(mode !== 'COB' && curZone === 'Punta Arenas') {
+        kpisDiv.innerHTML = `<div class="kpi" style="border-color:#d93025;color:#d93025"><b>Sin Datos</b><span>Punta Arenas no cuenta con matriz de ${mode}</span></div>`;
+        tbl.innerHTML = '';
+        if(chart) chart.destroy();
+        title.textContent = `Sin datos de ${mode} para Punta Arenas`;
+        return;
+    }
+
+    const isCob = mode === 'COB';
+    const rows = isCob ? parseCob() : parseKpi();
+    const meses = isCob ? D[curZone].m : MESES_DN_DP;
+    const n = meses.length;
+    const L = n - 1; 
+    const P = L - 1;
+    const Y = L - 12;
+
+    title.textContent = `${isCob ? 'Cob/NARTD' : (mode==='DN'?'Distribución Numérica':'Distribución Ponderada')} por marca y formato – ${curZone}`;
+
+    const ord = [...rows].filter(r => r.val[L] != null).sort((a,b) => b.val[L] - a.val[L]);
+    const max = isCob ? Math.max(...rows.flatMap(r => r.val.filter(x => x != null))) : 100;
+    
+    if(ord.length > 0) {
+        const mv = [...ord].filter(r => r.val[P] != null).map(r => ({ r, d: (r.val[L] - r.val[P]) * (isCob?100:1) })).sort((a,b) => b.d - a.d);
+        
+        let k = [
+            ['Mes de análisis', meses[L]],
+            [`Mayor ${mode}`, fmtVal(ord[0].val[L], mode), `${ord[0].b} ${ord[0].f}`],
+            [`Menor ${mode}`, fmtVal(ord.at(-1).val[L], mode), `${ord.at(-1).b} ${ord.at(-1).f}`]
+        ];
+        
+        if(mv.length) {
+            k.push(['Mayor alza mensual', `+${mv[0].d.toFixed(1)} pp`, `${mv[0].r.b} ${mv[0].r.f}`, 'up']);
+            k.push(['Mayor baja mensual', `${mv.at(-1).d.toFixed(1)} pp`, `${mv.at(-1).r.b} ${mv.at(-1).r.f}`, 'dn']);
+        }
+        kpisDiv.innerHTML = k.map(x => `<div class="kpi"><small>${x[0]}</small><b>${x[1]}</b><span class="${x[3]||''}">${x[2]||''}</span></div>`).join('');
+    }
+
+    let thH = `<thead><tr><th class="s1">Marca</th><th class="s2">Formato</th>${meses.map(m=>`<th>${m}</th>`).join('')}`;
+    if(!isCob) {
+       thH += `<th>Δ mes</th><th>Δ año</th>`;
+    }
+    thH += `</tr></thead><tbody>`;
+    let last = '';
+    
+    rows.forEach((r, i) => {
+        const valL = isCob ? (r.val[L]!=null?r.val[L]*100:null) : r.val[L];
+        const valP = isCob ? (r.val[P]!=null?r.val[P]*100:null) : r.val[P];
+        const valY = isCob ? (r.val[Y]!=null?r.val[Y]*100:null) : r.val[Y];
+        
+        thH += `<tr class="fmt ${sel.has(i)?'sel':''}" data-i="${i}">
+            <td class="s1">${r.b===last?'':r.b}</td><td class="s2">${r.f}</td>
+            ${r.val.map(v => `<td style="${heatVal(v, max, mode)}">${fmtVal(v, mode)}</td>`).join('')}`;
+            
+        if(!isCob) {
+            thH += `${del(valL, valP)}${del(valL, valY)}`;
+        }
+        thH += `</tr>`;
+        last = r.b;
+    });
+    
+    if(isCob) {
+        const tot = D[curZone].tot;
+        thH += `<tr class="tot"><td class="s1">Total general</td><td class="s2">clientes</td>${tot.map(x=>`<td>${x.toLocaleString('es-CL')}</td>`).join('')}</tr>`;
+    }
+    
+    tbl.innerHTML = thH + '</tbody>';
+
+    document.querySelectorAll('#tbl tr.fmt').forEach(tr => {
+        tr.onclick = () => {
+            const i = +tr.dataset.i;
+            sel.has(i) ? sel.delete(i) : sel.add(i);
+            render();
+        }
+    });
+
+    if(!sel.size && ord.length > 0) {
+        ord.slice(0, 4).forEach(r => sel.add(rows.indexOf(r)));
+    }
+    
+    const ds = [...sel].map((i, j) => ({
+        label: `${rows[i].b} ${rows[i].f}`,
+        data: rows[i].val.map(v => v == null ? null : (isCob ? +(v*100).toFixed(2) : v)),
+        borderColor: PAL[j%PAL.length],
+        backgroundColor: PAL[j%PAL.length],
+        tension: 0.3,
+        pointRadius: 2,
+        spanGaps: false
+    }));
+
+    if(chart) chart.destroy();
+    chart = new Chart(document.getElementById('chart'), {
+        type: 'line',
+        data: { labels: meses, datasets: ds },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                title: { display: true, text: `Evolución ${mode} (%) – ${curZone}` },
+                tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y}%` } }
+            },
+            scales: { y: { min: 0, ticks: { callback: v => v+'%' } } }
+        }
+    });
+}
+
+init();
+</script>
+</body>
+</html>
